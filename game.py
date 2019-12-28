@@ -2,7 +2,7 @@ from cell import Cell
 import pygame
 import random
 import math
-
+from enum import Enum
 FIGURES = [
     [(-1, 0), (0, 0), (1, 0), (2, 0)],
     [(-1, 0), (0, 0), (1, 0), (0, 1)],
@@ -11,15 +11,21 @@ FIGURES = [
     [(-1, 0), (0, 0), (1, 0), (1, 1)]
 ]
 
+class GameState(Enum):
+    ANIMATION = 1
+    ACTION = 2
+    GAMEOVER = 3
+
 class State:
 
     def __init__(self, screen_width, screen_height):
         self.screen_width = screen_width
         self.screen_height = screen_height
-
+        self.game_state = GameState.ACTION
+        
         self.width = 10
         self.height = 10
-        
+   
         self.row = screen_height//self.height
         self.col = screen_width//self.width
         self.grid = []
@@ -89,7 +95,7 @@ class State:
         red = random.randint(100, 254)
         green = random.randint(100, 254)
         blue = random.randint(100, 254)
-        self.figure = [[], (red,green,blue)]
+        self.figure = [[], (red, green, blue)]
         start_point = (self.col // 2, 0)
         rng_figure = FIGURES[random.randint(0, len(FIGURES) - 1)]
         for figure_vector in rng_figure:
