@@ -26,6 +26,7 @@ class State:
         self.width = 10
         self.height = 10
    
+        self.animation_timer = 0
         self.row = screen_height//self.height
         self.col = screen_width//self.width
         self.grid = []
@@ -38,6 +39,9 @@ class State:
                 row.append(Cell(x, y))
             self.grid.append(row)
 
+        # for animation
+        self.animated_rows = []
+
     def clone(self):
         state = State(self.screen_width, self.screen_height)
         for y in range(self.row):
@@ -47,6 +51,12 @@ class State:
         state.figure = [[x[:] for x in self.figure[0]], self.figure[1]]
 
         return state
+
+    def get_random_color(self):
+        red = random.randint(100, 254)
+        green = random.randint(100, 254)
+        blue = random.randint(100, 254)
+        return (red, green, blue)
 
     def multiply_matrix(self, a, b):
         matrix = []
@@ -139,11 +149,12 @@ class State:
         for y in range(self.row):
             if sum([int(self.grid[y][x].is_free()) for x in range(self.col)]) == 0:
                 # destroy this row and lower everythin above this
-                for cell in self.grid[y]:
-                    cell.clear_cell()
-                for y2 in reversed(range(1, y+1)):
-                    for cell in self.grid[y2]:
-                        cell.color = self.grid[y2 - 1][cell.x].color
+                self.animated_rows.append(y)
+
+        # change gamestate to animation
+        if len(self.animated_rows) > 0:
+            self.game_state = GameState.ANIMATION
+            self.animation_timer = 4
 
     def place_figure(self):
         for pt in self.figure[0]:
@@ -161,7 +172,32 @@ class State:
                 return False
         return True
 
+    def animate(self):
+        for animate_row in self.animated_rows:
+            color = self.get_random_color()
+            for cell in self.grid[animate_row]:
+                cell.color = color
+        
+        self.animation_timer-=1
+        if self.animation_timer <= 0:
+        # destroy animated rows and create new figure
+            for erase_row in self.animated_rows:    
+                for cell in self.grid[erase_row]:
+                    cell.clear_cell()
+                for y2 in reversed(range(1, erase_row+1)):
+                    for cell in self.grid[y2]:
+                        cell.color = self.grid[y2 - 1][cell.x].color
+            self.game_state = GameState.ACTION
+            self.animated_rows = []
+                
+
     def update(self, keys):
+        if self.game_state is GameState.ANIMATION:
+            # animate
+            self.animate()
+            return
+
+
         if len(self.figure[0]) == 0:
             self.new_figure()
     
