@@ -18,7 +18,7 @@ class GameState(Enum):
 
 class State:
 
-    def __init__(self, screen_width, screen_height):
+    def __init__(self, screen_width, screen_height, enable_animations = True):
         self.screen_width = screen_width
         self.screen_height = screen_height
         self.game_state = GameState.ACTION
@@ -30,7 +30,7 @@ class State:
         self.row = screen_height//self.height
         self.col = screen_width//self.width
         self.grid = []
-        self.figure = [[], (0,0,0)]
+        self.figure = [[], (0, 0, 0)]
         # generate new figure
         self.new_figure()
         for y in range(self.row):
@@ -41,6 +41,7 @@ class State:
 
         # for animation
         self.animated_rows = []
+        self.enable_animations = enable_animations
 
     def clone(self):
         state = State(self.screen_width, self.screen_height)
@@ -65,7 +66,7 @@ class State:
             for i in range(len(b)):
                 value = 0
                 for j in range(len(b)):
-                    value+= a[k][j] * b[j][i]
+                    value += a[k][j] * b[j][i]
                 row.append(value)
             matrix.append(row)
         return matrix
@@ -130,7 +131,7 @@ class State:
 
     def change_or_keep(self, new_figure_pos):
         if self.is_figure_valid(new_figure_pos):
-            self.figure[0] = new_figure_pos   
+            self.figure[0] = new_figure_pos
         else:
             self.place_figure()
     
@@ -153,9 +154,13 @@ class State:
 
         # change gamestate to animation
         if len(self.animated_rows) > 0:
-            self.game_state = GameState.ANIMATION
-            self.animation_timer = 4
+            if self.enable_animations:
+                self.game_state = GameState.ANIMATION
+                self.animation_timer = 4
+            else:
+                self.destory_animated_rows()
 
+    
     def place_figure(self):
         for pt in self.figure[0]:
             self.grid[pt[1]][pt[0]].color = self.figure[1][:]
@@ -171,7 +176,15 @@ class State:
             if not self.is_valid(new_pt) or not self.grid[new_pt[1]][new_pt[0]].is_free():                
                 return False
         return True
-
+  
+    def destory_animated_rows(self):
+        for erase_row in self.animated_rows:    
+            for cell in self.grid[erase_row]:
+                cell.clear_cell()
+            for y2 in reversed(range(1, erase_row+1)):
+                for cell in self.grid[y2]:
+                    cell.color = self.grid[y2 - 1][cell.x].color
+  
     def animate(self):
         for animate_row in self.animated_rows:
             color = self.get_random_color()
@@ -181,12 +194,7 @@ class State:
         self.animation_timer-=1
         if self.animation_timer <= 0:
         # destroy animated rows and create new figure
-            for erase_row in self.animated_rows:    
-                for cell in self.grid[erase_row]:
-                    cell.clear_cell()
-                for y2 in reversed(range(1, erase_row+1)):
-                    for cell in self.grid[y2]:
-                        cell.color = self.grid[y2 - 1][cell.x].color
+            self.destory_animated_rows()
             self.game_state = GameState.ACTION
             self.animated_rows = []
                 
@@ -212,6 +220,9 @@ class State:
             self.rotate_figure(new_figure_pos)
             if self.is_figure_valid(new_figure_pos):
                 self.figure[0] = new_figure_pos
+                
+        if keys[pygame.K_s]:
+            self.figure[0] = self.get_end_figure(self.figure[0])
         
 
       
@@ -223,7 +234,7 @@ class State:
         
               # draw future figure for referece for the player
         for pt in self.get_end_figure(self.figure[0]):
-            pygame.draw.rect(window, (220, 220, 220), pygame.Rect(pt[0] * self.width, pt[1] * self.height, self.width, self.height))
+            pygame.draw.rect(window, (220, 220, 220), pygame.Rect(pt[0] * self.width, pt[1] * self.height, self.width, self.height), 1)
    
         # draw the figure
         for pt in self.figure[0]:
