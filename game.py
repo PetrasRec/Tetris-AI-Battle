@@ -31,6 +31,8 @@ class State:
         self.col = screen_width//self.width
         self.grid = []
         self.figure = [[], (0, 0, 0)]
+        self.next_figures_indexes = []
+        self.generate_figure_indexes()
         # generate new figure
         self.new_figure()
         for y in range(self.row):
@@ -42,6 +44,7 @@ class State:
         # for animation
         self.animated_rows = []
         self.enable_animations = enable_animations
+       
 
     def clone(self):
         state = State(self.screen_width, self.screen_height)
@@ -101,16 +104,35 @@ class State:
             rotated_coords = self.multiply_matrix(coord_matrix, finished_matrix)
             figure[i] = [math.floor(rotated_coords[0][0]), math.floor(rotated_coords[0][1])]
 
+    def generate_figure_indexes(self):
+        for i in range(3 - len(self.next_figures_indexes)):
+            self.next_figures_indexes.append(random.randint(0, len(FIGURES) - 1))
+
+    def get_figure_by_index(self, start_point, index):
+        figure = []
+        for figure_vector in FIGURES[index]:
+            figure.append(([figure_vector[0] + start_point[0], figure_vector[1] + start_point[1]]))
+        return figure
+        
     def new_figure(self):
+        if len(self.next_figures_indexes) == 0:
+            print("BROKEN")
+            return
+
         self.figure = None
         red = random.randint(100, 254)
         green = random.randint(100, 254)
         blue = random.randint(100, 254)
         self.figure = [[], (red, green, blue)]
         start_point = (self.col // 2, 0)
-        rng_figure = FIGURES[random.randint(0, len(FIGURES) - 1)]
+        rng_figure = FIGURES[self.next_figures_indexes[0]]
         for figure_vector in rng_figure:
             self.figure[0].append(([figure_vector[0] + start_point[0], figure_vector[1] + start_point[1]]))
+
+        # delete first next_figures_indexes element
+        self.next_figures_indexes.pop(0)
+        # generetates more figures
+        self.generate_figure_indexes()
 
     def is_valid(self, point):
         return point[0] >= 0 and point[0] <= self.col - 1 and point[1] >= 0 and point[1] <= self.row - 1  
@@ -225,20 +247,27 @@ class State:
             self.figure[0] = self.get_end_figure(self.figure[0])
         
 
-      
-            
-    def draw(self, window):
+ 
+  
+    def draw(self, window, relative_position=(0, 0)):
         for y in range(self.row):
             for x in range(self.col):
-                pygame.draw.rect(window, self.grid[y][x].color, pygame.Rect(x * self.width, y * self.height, self.width, self.height))
+                pygame.draw.rect(window, self.grid[y][x].color, pygame.Rect(x * self.width + relative_position[0], y * self.height + relative_position[1], self.width, self.height))
         
               # draw future figure for referece for the player
         for pt in self.get_end_figure(self.figure[0]):
-            pygame.draw.rect(window, (220, 220, 220), pygame.Rect(pt[0] * self.width, pt[1] * self.height, self.width, self.height), 1)
+            pygame.draw.rect(window, (220, 220, 220), pygame.Rect(pt[0] * self.width + relative_position[0], pt[1] * self.height + relative_position[1], self.width, self.height), 1)
    
         # draw the figure
         for pt in self.figure[0]:
             if self.is_valid(pt):
-                pygame.draw.rect(window, self.figure[1], pygame.Rect(pt[0] * self.width, pt[1] * self.height, self.width, self.height))
+                pygame.draw.rect(window, self.figure[1], pygame.Rect(pt[0] * self.width + relative_position[0], pt[1] * self.height + relative_position[1], self.width, self.height))
    
-  
+    def draw_next_figures(self, window, relative_position=(0,0)):
+        y_pos = 0
+        for index in self.next_figures_indexes:
+            figure = self.get_figure_by_index((0, y_pos), index)
+            for pt in figure:
+                pygame.draw.rect(window, (0, 255, 0), pygame.Rect(pt[0] * self.width + relative_position[0], pt[1] * self.height + relative_position[1], self.width, self.height))
+   
+            y_pos += 3
