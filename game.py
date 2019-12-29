@@ -45,7 +45,9 @@ class State:
         self.animated_rows = []
         self.enable_animations = enable_animations
        
-
+    
+    # This will clone the state, but without animations
+    # IF NEEDED ADD CLONING OF THE ANIMATIONS
     def clone(self):
         state = State(self.screen_width, self.screen_height)
         for y in range(self.row):
@@ -53,6 +55,9 @@ class State:
                 state.grid[y][x].color = self.grid[y][x].color
 
         state.figure = [[x[:] for x in self.figure[0]], self.figure[1]]
+
+        state.enable_animations = False
+        state.next_figures_indexes = self.next_figures_indexes[:]
 
         return state
 
@@ -99,10 +104,32 @@ class State:
                            [0, 0, 1]
                           ]
         finished_matrix = self.multiply_matrix(self.multiply_matrix(move_transformation1, rotation_transformation), move_transformation2)
+
         for i, point in enumerate(figure):
             coord_matrix = [[point[0], point[1], 1]]
             rotated_coords = self.multiply_matrix(coord_matrix, finished_matrix)
             figure[i] = [math.floor(rotated_coords[0][0]), math.floor(rotated_coords[0][1])]
+
+        margin_of_error = self.get_figure_error(figure)
+        for i in range(len(figure)):
+            figure[i][0] += margin_of_error
+        
+
+    def get_figure_error(self, figure):
+        best_move_x = 0
+        for i, point in enumerate(figure):
+            x = point[0]
+            move_x = 0
+            if x < 0:
+                move_x = abs(x)
+            elif x > self.col - 1:
+                move_x = -(x - (self.col - 1))
+            
+            if abs(move_x) > abs(best_move_x):
+                best_move_x = move_x
+
+        return best_move_x
+       
 
     def generate_figure_indexes(self):
         for i in range(3 - len(self.next_figures_indexes)):
@@ -141,15 +168,11 @@ class State:
         for i in range(len(figure)):
             figure[i][1] += 1
 
-    def move_figure(self, figure, keys):
-        delta_x = 0
-        if keys[pygame.K_a]:
-            delta_x += -1
-        if keys[pygame.K_d]:
-            delta_x += 1
+    def move_figure(self, figure, delta_x):
         if sum(int(not self.is_valid([x[0] + delta_x, x[1]])) or not self.grid[x[1]][x[0]+ delta_x].is_free() for x in figure) == 0:
             for i in range(len(figure)):
                 figure[i][0] += delta_x
+    
 
     def change_or_keep(self, new_figure_pos):
         if self.is_figure_valid(new_figure_pos):
@@ -178,7 +201,7 @@ class State:
         if len(self.animated_rows) > 0:
             if self.enable_animations:
                 self.game_state = GameState.ANIMATION
-                self.animation_timer = 4
+                self.animation_timer = 4 * len(self.animated_rows)
             else:
                 self.destory_animated_rows()
 
@@ -206,6 +229,7 @@ class State:
             for y2 in reversed(range(1, erase_row+1)):
                 for cell in self.grid[y2]:
                     cell.color = self.grid[y2 - 1][cell.x].color
+        self.animated_rows = []
   
     def animate(self):
         for animate_row in self.animated_rows:
@@ -217,9 +241,7 @@ class State:
         if self.animation_timer <= 0:
         # destroy animated rows and create new figure
             self.destory_animated_rows()
-            self.game_state = GameState.ACTION
-            self.animated_rows = []
-                
+            self.game_state = GameState.ACTION             
 
     def update(self, keys):
         if self.game_state is GameState.ANIMATION:
@@ -234,14 +256,20 @@ class State:
         new_figure_pos = [x[:] for x in self.figure[0]]
         # add gravity to the figure
         self.add_gravity(new_figure_pos)
-        self.move_figure(new_figure_pos, keys)
+
+        delta_x = 0
+        if keys[pygame.K_a]:
+            delta_x += -1
+        if keys[pygame.K_d]:
+            delta_x += 1
+
+        self.move_figure(new_figure_pos, delta_x)
         # check if this figure is intersecting anything
         self.change_or_keep(new_figure_pos)
         new_figure_pos = [x[:] for x in self.figure[0]]
         if keys[pygame.K_w]:
             self.rotate_figure(new_figure_pos)
-            if self.is_figure_valid(new_figure_pos):
-                self.figure[0] = new_figure_pos
+            self.figure[0] = new_figure_pos
                 
         if keys[pygame.K_s]:
             self.figure[0] = self.get_end_figure(self.figure[0])
